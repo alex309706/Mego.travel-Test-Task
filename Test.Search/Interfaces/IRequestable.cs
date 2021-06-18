@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Test.Search.Interfaces
 {
-    interface IRequestable
+    public interface IRequestable
     {
         public string SearchingSystemName { get;}
         public long RequestTime { get; set;}

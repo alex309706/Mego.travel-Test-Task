@@ -25,18 +25,23 @@ namespace Test.Search.Controllers
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
 
-            var ResultFromSystemA = await A.Request(randomMin, randomMax,token);
-            string NameOfSearchSystemA = A.SearchingSystemName;
-            long RequestTimeA = A.RequestTime;
-
-            await Task.Run(()=>
+            Task TaskToCancelRequest = Task.Run(() =>
             {
                 int waitTimeToSeconds = wait * 1000;
                 Thread.Sleep(waitTimeToSeconds);
                 source.Cancel();
             });
+
+            Metrics MetricsA = new Metrics();
+            MetricsA.RequestableSystem = A;
+            MetricsA.NameOfSearchingSystem = A.SearchingSystemName;
+            MetricsA.Result = await A.Request(randomMin, randomMax, token);
+            MetricsA.TimeSpentToRequest = A.RequestTime;
+
+           
             
-            return $"Result: {ResultFromSystemA} Name Of Searching System: {NameOfSearchSystemA} Request Time : {RequestTimeA} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
+            return $"Result: {MetricsA.Result} Name Of Searching System: {MetricsA.NameOfSearchingSystem} Request Time : {MetricsA.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
         }
+
     }
 }
