@@ -2,8 +2,10 @@
 
 namespace Test.Search.Models
 {
-    public class ExternalB : IRequestable, IExternable
+    public class ExternalB : IRequestable
     {
-        public string SearchSystemName => "External Searching System B";
+        public string SearchingSystemName => "External Searching System B";
+
+        public long RequestTime { get; set; }
     }
 }

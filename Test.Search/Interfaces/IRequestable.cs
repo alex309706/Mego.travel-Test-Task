@@ -8,6 +8,8 @@ namespace Test.Search.Interfaces
 {
     interface IRequestable
     {
+        public string SearchingSystemName { get;}
+        public long RequestTime { get; set;}
         public async Task<string> Request (int minimalExecutionTime, int maximalExecutiontime,CancellationToken token)
         {
             if (token.IsCancellationRequested)
@@ -15,7 +17,6 @@ namespace Test.Search.Interfaces
 
             return await Task.Run(() => SyncRequest(minimalExecutionTime, maximalExecutiontime, token));
         }
-
         string SyncRequest(int minimalExecutionTime, int maximumExecutiontime, CancellationToken token)
         {
             Stopwatch stopwatchToGetSpentTimeForRequest = new Stopwatch();
@@ -48,7 +49,7 @@ namespace Test.Search.Interfaces
             finally
             {
                 stopwatchToGetSpentTimeForRequest.Stop();
-                long requestTime = stopwatchToGetSpentTimeForRequest.ElapsedMilliseconds;
+                RequestTime = stopwatchToGetSpentTimeForRequest.ElapsedMilliseconds;
             }
        }
     }

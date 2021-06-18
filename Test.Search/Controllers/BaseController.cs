@@ -15,9 +15,9 @@ namespace Test.Search.Controllers
     public class BaseController : ControllerBase
     {
         IRequestable A = new ExternalA();
-        ExternalB B = new ExternalB();
-        ExternalC C = new ExternalC();
-        ExternalD D = new ExternalD();
+        IRequestable B = new ExternalB();
+        IRequestable C = new ExternalC();
+        IRequestable D = new ExternalD();
 
         [Route("/api/[controller]/Search")]
         public async Task <string> Search(int wait, int randomMin, int randomMax)
