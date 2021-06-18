@@ -25,10 +25,13 @@ namespace Test.Search.Interfaces
                 stopwatchToGetSpentTimeForRequest.Start();
                 Random rnd = new Random();
                 //для генерации случайного времени выполнения запроса
-                int executionTime = rnd.Next(minimalExecutionTime, maximumExecutiontime);
+                int minimalExecutionTimeToSeconds = minimalExecutionTime * 1000;
+                int maximumExecutiontimeToSeconds = maximumExecutiontime * 1000;
 
-                int executionTimeToSeconds = executionTime * 1000;
-                Thread.Sleep(executionTimeToSeconds);
+                int executionTime = rnd.Next(minimalExecutionTimeToSeconds, maximumExecutiontimeToSeconds);
+
+                
+                Thread.Sleep(executionTime);
 
                 //проверка ожидания данных от запроса
                 if (token.IsCancellationRequested)

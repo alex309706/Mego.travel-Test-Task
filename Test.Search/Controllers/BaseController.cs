@@ -38,10 +38,22 @@ namespace Test.Search.Controllers
             MetricsA.Result = await A.Request(randomMin, randomMax, token);
             MetricsA.TimeSpentToRequest = A.RequestTime;
 
-           
-            
-            return $"Result: {MetricsA.Result} Name Of Searching System: {MetricsA.NameOfSearchingSystem} Request Time : {MetricsA.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
-        }
+            Metrics MetricsB = new Metrics();
+            MetricsB.RequestableSystem = B;
+            MetricsB.NameOfSearchingSystem = A.SearchingSystemName;
+            MetricsB.Result = await A.Request(randomMin, randomMax, token);
+            MetricsB.TimeSpentToRequest = A.RequestTime;
 
+            Metrics MetricsC = new Metrics();
+            MetricsC.RequestableSystem = C;
+            MetricsC.NameOfSearchingSystem = A.SearchingSystemName;
+            MetricsC.Result = await A.Request(randomMin, randomMax, token);
+            MetricsC.TimeSpentToRequest = A.RequestTime;
+
+            string result = $"Result: {MetricsA.Result} Name Of Searching System: {MetricsA.NameOfSearchingSystem} Request Time : {MetricsA.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}\n";
+            result += $"Result: {MetricsB.Result} Name Of Searching System: {MetricsB.NameOfSearchingSystem} Request Time : {MetricsB.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}\n";
+            result += $"Result: {MetricsC.Result} Name Of Searching System: {MetricsC.NameOfSearchingSystem} Request Time : {MetricsC.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
+            return result;
+        }
     }
 }

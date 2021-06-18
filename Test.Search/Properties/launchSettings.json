@@ -12,7 +12,7 @@
     "IIS Express": {
       "commandName": "IISExpress",
       "launchBrowser": true,
-      "launchUrl": "api/Base/Search?wait=2&randommin=2&randommax=5",
+      "launchUrl": "api/Base/Search?wait=10&randommin=2&randommax=3",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
