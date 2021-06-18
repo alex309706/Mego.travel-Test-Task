@@ -25,17 +25,18 @@ namespace Test.Search.Controllers
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
 
-            var ResultFromSystemA =  A.Request(randomMin, randomMax,token);
-            IExternable SystemAToExternable = (IExternable)A;
-            string NameOfSearchSystemA = SystemAToExternable.SearchSystemName;
-            
+            var ResultFromSystemA = await A.Request(randomMin, randomMax,token);
+            string NameOfSearchSystemA = A.SearchingSystemName;
+            long RequestTimeA = A.RequestTime;
+
             await Task.Run(()=>
             {
                 int waitTimeToSeconds = wait * 1000;
                 Thread.Sleep(waitTimeToSeconds);
                 source.Cancel();
             });
-            return $"Result: {ResultFromSystemA.Result} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
+            
+            return $"Result: {ResultFromSystemA} Name Of Searching System: {NameOfSearchSystemA} Request Time : {RequestTimeA} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
         }
     }
 }
