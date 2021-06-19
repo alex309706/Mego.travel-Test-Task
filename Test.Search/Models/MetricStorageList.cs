@@ -6,7 +6,7 @@ using Test.Search.Interfaces;
 
 namespace Test.Search.Models
 {
-    public class MetricStorage : IStorage<Metric> 
+    public class MetricStorageList : IStorage<Metric> 
     {
         public List<Metric> MetricData { get; set; } = new List<Metric>();
         public void Create(Metric newInstantce)
@@ -15,9 +15,12 @@ namespace Test.Search.Models
             {
                 MetricData.Add(newInstantce);
             }
-            //установка ID метрики
-            newInstantce.MetricID = MetricData.Max(metric=>metric.MetricID)+1;
-            MetricData.Add(newInstantce);
+            else
+            {
+                //установка ID метрики
+                newInstantce.MetricID = MetricData.Max(metric => metric.MetricID) + 1;
+                MetricData.Add(newInstantce);
+            }
         }
 
         public void Delete(int ID)

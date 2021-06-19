@@ -41,7 +41,7 @@ namespace Test.Search.Controllers
             return await Task.Run(async()=>
             {
                 //запрос к системе A
-                Task<Metric> MakeRequestToSystemA = Task.Run(() => MakeMetric(A,randomMin,randomMax,token));
+                Task<Metric> MakeRequestToSystemA =  Task.Run(() => MakeMetric(A,randomMin,randomMax,token));
                 //запись метрики
                 Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
 
@@ -60,7 +60,7 @@ namespace Test.Search.Controllers
                     if(resultFromSearchingSystemC.Result=="OK")
                     {
                         //запрос к системе D
-                        Task<Metric> MakeRequestToSystemD = Task.Run(() => MakeMetric(D, randomMin, randomMax, token));
+                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token));
                         //запись метрики
                         Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
                     }
@@ -74,9 +74,9 @@ namespace Test.Search.Controllers
         {
             Metric newMetric = new Metric();
             newMetric.RequestableSystem = SearchingSystem;
-            newMetric.NameOfSearchingSystem = A.SearchingSystemName;
-            newMetric.Result = A.Request(randomMin, randomMax, token);
-            newMetric.TimeSpentToRequest = A.RequestTime;
+            newMetric.NameOfSearchingSystem = SearchingSystem.SearchingSystemName;
+            newMetric.Result = SearchingSystem.Request(randomMin, randomMax, token);
+            newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
             return newMetric;
         }
         //public  Metrics()

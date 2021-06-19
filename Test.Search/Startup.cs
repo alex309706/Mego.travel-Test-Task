@@ -28,7 +28,7 @@ namespace Test.Search
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddSingleton<IStorage<Metric>,MetricStorage>();
+            services.AddSingleton<IStorage<Metric>, MetricStorageList>();
             services.AddSwaggerGen();
         }
 
