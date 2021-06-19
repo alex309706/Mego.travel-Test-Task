@@ -1,15 +1,20 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Test.Search.Interfaces;
 
 namespace Test.Search.Models
 {
-    public class MetricStorage : IStorage<Metric>
+    public class MetricStorage : IStorage<Metric> 
     {
         public List<Metric> MetricData { get; set; } = new List<Metric>();
         public void Create(Metric newInstantce)
         {
+            if (MetricData.Count==0)
+            {
+                MetricData.Add(newInstantce);
+            }
             //установка ID метрики
             newInstantce.MetricID = MetricData.Max(metric=>metric.MetricID)+1;
             MetricData.Add(newInstantce);
@@ -31,6 +36,7 @@ namespace Test.Search.Models
             return MetricData.FirstOrDefault(Metric=>Metric.MetricID == ID);
         }
 
+     
         public void Update(Metric instatceToUpdate)
         {
             if (instatceToUpdate == null)
@@ -43,6 +49,15 @@ namespace Test.Search.Models
             }
             Metric MetricFromStorage = MetricData.FirstOrDefault(Metric=>Metric.MetricID ==instatceToUpdate.MetricID);
             MetricFromStorage = instatceToUpdate;
+        }
+
+        public IEnumerator<Metric> GetEnumerator()
+        {
+            return MetricData.GetEnumerator();
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return MetricData.GetEnumerator();
         }
     }
 }

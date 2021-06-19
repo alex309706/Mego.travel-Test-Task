@@ -18,6 +18,11 @@ namespace Test.Search.Controllers
         IRequestable B = new ExternalB();
         IRequestable C = new ExternalC();
         IRequestable D = new ExternalD();
+        IStorage<Metric> MetricStorage;
+        public BaseController(IStorage<Metric> inputRealisationOfStorage)
+        {
+            MetricStorage = inputRealisationOfStorage;
+        }
 
         [Route("/api/[controller]/Search")]
         public async Task <IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
@@ -32,19 +37,18 @@ namespace Test.Search.Controllers
                 source.Cancel();
             });
 
-            List<Metric> MetricData = new List<Metric>();
 
             return await Task.Run(async()=>
             {
                 //запрос к системе A
                 Task<Metric> MakeRequestToSystemA = Task.Run(() => MakeMetric(A,randomMin,randomMax,token));
                 //запись метрики
-                Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricData.Add(MakeRequestToSystemA.Result));
+                Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
 
                 //запрос к системе B
                 Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax, token));
                 //запись метрики
-                Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricData.Add(MakeRequestToSystemB.Result));
+                Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemB.Result));
 
                 //запрос к системе C
                 Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax, token));
@@ -52,18 +56,18 @@ namespace Test.Search.Controllers
                 Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
                 {
                     Metric resultFromSearchingSystemC = MakeRequestToSystemC.Result;
-                    MetricData.Add(resultFromSearchingSystemC);
+                    MetricStorage.Create(resultFromSearchingSystemC);
                     if(resultFromSearchingSystemC.Result=="OK")
                     {
                         //запрос к системе D
                         Task<Metric> MakeRequestToSystemD = Task.Run(() => MakeMetric(D, randomMin, randomMax, token));
                         //запись метрики
-                        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricData.Add(MakeRequestToSystemD.Result));
+                        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
                     }
                 });
 
                 await Task.WhenAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC });
-                return MetricData;
+                return MetricStorage;
             });
         }
         private Metric MakeMetric(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)

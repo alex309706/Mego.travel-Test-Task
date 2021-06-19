@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 namespace Test.Search.Interfaces
 {
-    public interface IStorage<T>
+    public interface IStorage<T>:IEnumerable<T>
     {
         public void Create(T newInstantce);
         public void Update(T instatceToUpdate);

@@ -10,6 +10,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Test.Search.Interfaces;
+using Test.Search.Models;
 
 namespace Test.Search
 {
@@ -26,6 +28,7 @@ namespace Test.Search
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddSingleton<IStorage<Metric>,MetricStorage>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
