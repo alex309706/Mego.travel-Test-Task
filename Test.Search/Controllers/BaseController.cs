@@ -25,6 +25,7 @@ namespace Test.Search.Controllers
         }
 
         [Route("/api/[controller]/Search")]
+        [HttpGet]
         public async Task <IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
             CancellationTokenSource source = new CancellationTokenSource();
@@ -36,7 +37,6 @@ namespace Test.Search.Controllers
                 Thread.Sleep(waitTimeToSeconds);
                 source.Cancel();
             });
-
 
             return await Task.Run(async()=>
             {
@@ -65,11 +65,11 @@ namespace Test.Search.Controllers
                         Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
                     }
                 });
-
                 await Task.WhenAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC });
                 return MetricStorage;
             });
         }
+
         private Metric MakeMetric(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)
         {
             Metric newMetric = new Metric();
@@ -79,5 +79,10 @@ namespace Test.Search.Controllers
             newMetric.TimeSpentToRequest = A.RequestTime;
             return newMetric;
         }
+        //public  Metrics()
+        //{
+        //    var MetricGroup = MetricStorage.GroupBy(metric =>)
+
+        //}
     }
 }
