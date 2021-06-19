@@ -2,9 +2,9 @@
 
 namespace Test.Search.Models
 {
-    public class Metrics : IMetrics
+    public class Metric : IMetric
     {
-        public int MetricsID { get; set; }
+        public int MetricID { get; set; }
         public IRequestable RequestableSystem { get; set; }
         public string NameOfSearchingSystem { get; set; }
         public string Result { get; set; }

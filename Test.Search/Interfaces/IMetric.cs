@@ -1,8 +1,8 @@
 ﻿namespace Test.Search.Interfaces
 {
-    public interface IMetrics
+    public interface IMetric
     {
-        int MetricsID { get; set; }
+        int MetricID { get; set; }
         IRequestable RequestableSystem { get; set; }
         public string NameOfSearchingSystem { get; set; }
         string Result { get; set; }
