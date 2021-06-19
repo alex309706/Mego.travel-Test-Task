@@ -20,7 +20,7 @@ namespace Test.Search.Controllers
         IRequestable D = new ExternalD();
 
         [Route("/api/[controller]/Search")]
-        public async Task <string> Search(int wait, int randomMin, int randomMax)
+        public async Task <IEnumerable<Metrics>> Search(int wait, int randomMin, int randomMax)
         {
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
@@ -32,33 +32,47 @@ namespace Test.Search.Controllers
                 source.Cancel();
             });
 
-            //Metrics MetricsA = new Metrics();
-            //MetricsA.RequestableSystem = A;
-            //MetricsA.NameOfSearchingSystem = A.SearchingSystemName;
-            //MetricsA.Result = await A.Request(randomMin, randomMax, token);
-            //MetricsA.TimeSpentToRequest = A.RequestTime;
+            List<Metrics> MetricsData = new List<Metrics>();
 
-            //Metrics MetricsB = new Metrics();
-            //MetricsB.RequestableSystem = B;
-            //MetricsB.NameOfSearchingSystem = A.SearchingSystemName;
-            //MetricsB.Result = await A.Request(randomMin, randomMax, token);
-            //MetricsB.TimeSpentToRequest = A.RequestTime;
-
-            //Metrics MetricsC = new Metrics();
-            //MetricsC.RequestableSystem = C;
-            //MetricsC.NameOfSearchingSystem = A.SearchingSystemName;
-            //MetricsC.Result = await A.Request(randomMin, randomMax, token);
-            //MetricsC.TimeSpentToRequest = A.RequestTime;
-
-            //string result = $"Result: {MetricsA.Result} Name Of Searching System: {MetricsA.NameOfSearchingSystem} Request Time : {MetricsA.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}\n";
-            //result += $"Result: {MetricsB.Result} Name Of Searching System: {MetricsB.NameOfSearchingSystem} Request Time : {MetricsB.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}\n";
-            //result += $"Result: {MetricsC.Result} Name Of Searching System: {MetricsC.NameOfSearchingSystem} Request Time : {MetricsC.TimeSpentToRequest} Wait : { wait} RandomMin:{randomMin} RandomMax : {randomMax}";
-            
-            //заглушка
-            return await Task.Run(()=>
+            return await Task.Run(async()=>
             {
-                return "123";
+                //запрос к системе A
+                Task<Metrics> MakeRequestToSystemA = Task.Run(() => MakeMetrics(A,randomMin,randomMax,token));
+                //запись метрики
+                Task continuationTaskToWriteMetricsForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricsData.Add(MakeRequestToSystemA.Result));
+
+                //запрос к системе B
+                Task<Metrics> MakeRequestToSystemB = Task.Run(()=> MakeMetrics(B, randomMin, randomMax, token));
+                //запись метрики
+                Task continuationTaskToWriteMetricsForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricsData.Add(MakeRequestToSystemB.Result));
+
+                Task<Metrics> MakeRequestToSystemC = Task.Run(() => MakeMetrics(C, randomMin, randomMax, token));
+                //запись метрики
+                Task continuationTaskToWriteMetricsForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
+                {
+                    Metrics resultFromSearchingSystemC = MakeRequestToSystemC.Result;
+                    MetricsData.Add(resultFromSearchingSystemC);
+                    if(resultFromSearchingSystemC.Result=="OK")
+                    {
+                        //запрос к системе D
+                        Task<Metrics> MakeRequestToSystemD = Task.Run(() => MakeMetrics(D, randomMin, randomMax, token));
+                        //запись метрики
+                        Task continuationTaskToWriteMetricsForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricsData.Add(MakeRequestToSystemD.Result));
+                    }
+                });
+
+                await Task.WhenAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC });
+                return MetricsData;
             });
+        }
+        private Metrics MakeMetrics(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)
+        {
+            Metrics newMetrics = new Metrics();
+            newMetrics.RequestableSystem = SearchingSystem;
+            newMetrics.NameOfSearchingSystem = A.SearchingSystemName;
+            newMetrics.Result = A.Request(randomMin, randomMax, token);
+            newMetrics.TimeSpentToRequest = A.RequestTime;
+            return newMetrics;
         }
     }
 }
