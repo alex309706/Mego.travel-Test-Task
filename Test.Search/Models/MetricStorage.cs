@@ -10,6 +10,8 @@ namespace Test.Search.Models
         public List<Metric> MetricData { get; set; } = new List<Metric>();
         public void Create(Metric newInstantce)
         {
+            //установка ID метрики
+            newInstantce.MetricID = MetricData.Max(metric=>metric.MetricID)+1;
             MetricData.Add(newInstantce);
         }
 
