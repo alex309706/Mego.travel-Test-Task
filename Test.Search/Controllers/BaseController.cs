@@ -46,6 +46,7 @@ namespace Test.Search.Controllers
                 //запись метрики
                 Task continuationTaskToWriteMetricsForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricsData.Add(MakeRequestToSystemB.Result));
 
+                //запрос к системе C
                 Task<Metrics> MakeRequestToSystemC = Task.Run(() => MakeMetrics(C, randomMin, randomMax, token));
                 //запись метрики
                 Task continuationTaskToWriteMetricsForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
