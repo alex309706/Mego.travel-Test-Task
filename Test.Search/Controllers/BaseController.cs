@@ -79,10 +79,14 @@ namespace Test.Search.Controllers
             newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
             return newMetric;
         }
-        //public  Metrics()
-        //{
-        //    var MetricGroup = MetricStorage.GroupBy(metric =>)
 
-        //}
+        [Route("/api/[controller]/Metrics")]
+        [HttpGet]
+        public IEnumerable<IGrouping<string,Metric>>  Metrics()
+        {
+            var MetricGroup = MetricStorage.GroupBy(metric => metric.NameOfSearchingSystem);
+
+            return MetricGroup;
+        }
     }
 }
