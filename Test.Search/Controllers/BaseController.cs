@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,17 +40,17 @@ namespace Test.Search.Controllers
             return await Task.Run(async()=>
             {
                 //запрос к системе A
-                Task<Metric> MakeRequestToSystemA =  Task.Run(() => MakeMetric(A,randomMin,randomMax,token));
+                Task<Metric> MakeRequestToSystemA =  Task.Run(() => MakeMetric(A,randomMin,randomMax,token),token);
                 //запись метрики
                 Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
 
                 //запрос к системе B
-                Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax, token));
+                Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax, token), token);
                 //запись метрики
                 Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemB.Result));
 
                 //запрос к системе C
-                Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax, token));
+                Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax, token),token);
                 //запись метрики
                 Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
                 {
@@ -61,15 +61,15 @@ namespace Test.Search.Controllers
                     if(resultFromSearchingSystemC.Result=="OK")
                     {
                         //запрос к системе D
-                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token));
+                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token),token);
                         //запись метрики
                         Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
                     }
                 });
                 //ждем выполнения запросов
-                await Task.WhenAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC });
+                Task.WaitAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC});
                 return MetricStorage;
-            });
+            },token);
         }
 
         //создание метрики

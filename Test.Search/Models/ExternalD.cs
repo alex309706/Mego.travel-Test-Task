@@ -26,14 +26,16 @@ namespace Test.Search.Models
 
                 int executionTime = rnd.Next(minimalExecutionTimeToSeconds, maximumExecutiontimeToSeconds);
 
-                //имитация выполнения запроса
-                Thread.Sleep(executionTime);
-
-                //проверка ожидания данных от запроса
-                if (token.IsCancellationRequested)
+                //имитация выполнения запроса...Магическое число 100 т.к. если я останавливаю поток на 1 мс, то происходит "вечное ожидание"
+                for (int i = 0; i < executionTime; i += 100)
                 {
-                    return "TIMEOUT";
+                    if (token.IsCancellationRequested)
+                    {
+                        return "TIMEOUT";
+                    }
+                    Thread.Sleep(100);
                 }
+
                 int flagToResult = rnd.Next(0, 100);
 
                 if (flagToResult % 2 == 0)

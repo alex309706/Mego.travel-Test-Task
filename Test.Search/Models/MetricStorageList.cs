@@ -6,20 +6,27 @@ using Test.Search.Interfaces;
 
 namespace Test.Search.Models
 {
+    //Класс хранилища метрик
     public class MetricStorageList : IStorage<Metric> 
     {
         public List<Metric> MetricData { get; set; } = new List<Metric>();
+        object locker = new object();
         public void Create(Metric newInstantce)
         {
-            if (MetricData.Count==0)
+            lock(locker)
             {
-                MetricData.Add(newInstantce);
-            }
-            else
-            {
-                //установка ID метрики
-                newInstantce.MetricID = MetricData.Max(metric => metric.MetricID) + 1;
-                MetricData.Add(newInstantce);
+                if (MetricData.Count == 0)
+                {
+                    //записываем первый элемент
+                    newInstantce.MetricID = 1;
+                    MetricData.Add(newInstantce);
+                }
+                else
+                {
+                    //установка ID метрики
+                    newInstantce.MetricID = MetricData.Max(metric => metric.MetricID) + 1;
+                    MetricData.Add(newInstantce);
+                }
             }
         }
 
