@@ -12,7 +12,7 @@ namespace Test.Search.Models
 
         public long RequestTime { get; set; }
 
-        public string Request(int minimalExecutionTime, int maximumExecutiontime, CancellationToken token)
+        public string Request(int minimalExecutionTime, int maximumExecutiontime)
         {
             //для плдсчета времени выполнения запроса
             Stopwatch stopwatchToGetSpentTimeForRequest = new Stopwatch();

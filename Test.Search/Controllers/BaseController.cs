@@ -43,49 +43,58 @@ namespace Test.Search.Controllers
 
             return await Task.Run(()=>
             {
-                //запрос к системе A
-                Task<Metric> MakeRequestToSystemA =  Task.Run(() => MakeMetric(A,randomMin,randomMax,token),token);
-                //запись метрики
-                Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
+                Task<string> MakeRequestToSystemA = Task.Run(() => GetRequestResult(A,randomMin,randomMax),token);
+                Task<string> MakeRequestToSystemB = Task.Run(() => GetRequestResult(B, randomMin, randomMax), token);
+                Task<string> MakeRequestToSystemC = Task.Run(() => GetRequestResult(C, randomMin, randomMax), token);
+                Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(A, MakeRequestToSystemA.Result)));
+                Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(B, MakeRequestToSystemB.Result)));
+                Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask)=> MetricStorage.Create(MakeMetric(C, MakeRequestToSystemC.Result)));
 
-                //запрос к системе B
-                Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax, token), token);
-                //запись метрики
-                Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemB.Result));
 
-                //запрос к системе C
-                Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax, token),token);
-                //запись метрики
-                Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
-                {
-                    //получение результата из запроса к системе C, чтобы проверить, нужно ли делать запрос к системе D
-                    Metric resultFromSearchingSystemC = MakeRequestToSystemC.Result;
-                    MetricStorage.Create(resultFromSearchingSystemC);
-                    //по условию задания
-                    if(resultFromSearchingSystemC.Result=="OK")
-                    {
-                        //запрос к системе D
-                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token), TaskCreationOptions.AttachedToParent);
-                        //запись метрики
-                        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result),TaskContinuationOptions.ExecuteSynchronously);
-                        MakeRequestToSystemD.Wait();
-                    }
-                });
+                ////запись метрики
+                //Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
+
+                ////запрос к системе B
+                //Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax), token);
+                ////запись метрики
+                //Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemB.Result));
+
+                ////запрос к системе C
+                //Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax),token);
+                ////запись метрики
+                //Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
+                //{
+                //    //получение результата из запроса к системе C, чтобы проверить, нужно ли делать запрос к системе D
+                //    Metric resultFromSearchingSystemC = MakeRequestToSystemC.Result;
+                //    MetricStorage.Create(resultFromSearchingSystemC);
+                //    //по условию задания
+                //    if(resultFromSearchingSystemC.Result=="OK")
+                //    {
+                //        //запрос к системе D
+                //        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax));
+                //        //запись метрики
+                //        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
+                //        MakeRequestToSystemD.Wait();
+                //    }
+                //});
                 //ждем выполнения запросов
                 Task.WaitAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC});
                 return MetricStorage;
-                
             },token);
         }
 
         //создание метрики
-        private Metric MakeMetric(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)
+        private Metric MakeMetric(IRequestable SearchingSystem,string result)
         {
             Metric newMetric = new Metric();
             newMetric.NameOfSearchingSystem = SearchingSystem.SearchingSystemName;
-            newMetric.Result = SearchingSystem.Request(randomMin, randomMax);
+            newMetric.Result = result;
             newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
             return newMetric;
+        }
+        private string GetRequestResult(IRequestable SearchingSystem, int randomMin,int randomMax)
+        {
+          return SearchingSystem.Request(randomMin, randomMax);
         }
 
         [Route("/api/[controller]/Metrics")]
