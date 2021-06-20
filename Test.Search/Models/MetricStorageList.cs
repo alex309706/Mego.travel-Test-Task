@@ -11,7 +11,7 @@ namespace Test.Search.Models
     {
         public List<Metric> MetricData { get; set; } = new List<Metric>();
         object locker = new object();
-        public void Create(Metric newInstantce)
+        public void Add(Metric newInstantce)
         {
             lock(locker)
             {

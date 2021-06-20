@@ -92,7 +92,7 @@ namespace Test.Search.Controllers
                 //Task.WaitAll(new[] { MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC });
                 foreach (var metricFromCurrentRequest in MetricsFromCurrentRequest)
                 {
-                    MetricStorage.Create(metricFromCurrentRequest);
+                    MetricStorage.Add(metricFromCurrentRequest);
                 }
                
                 return MetricsFromCurrentRequest;
