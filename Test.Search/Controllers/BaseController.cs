@@ -30,7 +30,6 @@ namespace Test.Search.Controllers
         {
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
-
             Task TaskToCancelRequest = Task.Run(() =>
             {
                 int waitTimeToSeconds = wait * 1000;
@@ -82,11 +81,18 @@ namespace Test.Search.Controllers
 
         [Route("/api/[controller]/Metrics")]
         [HttpGet]
-        public IEnumerable<IGrouping<string,Metric>>  Metrics()
+        public IEnumerable<Report> Metrics()
         {
-            var MetricGroup = MetricStorage.GroupBy(metric => metric.NameOfSearchingSystem);
-
-            return MetricGroup;
+            //группировка по секундам осуществляется путем преобразования мс в сек (/1000) и округления до ближайшего целого с помощью Math.Round
+            //2 приведения типа...Скорее всего,можно улучшить
+            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest/1000))
+                .Select(group => new Report
+                {
+                    TimeSpentToRequest = group.Key, 
+                    CountOfRequests= group.Count(),
+                    ReportCollection = group.Select(metric=>metric)
+                });
+            return Reports;
         }
     }
 }
