@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +18,7 @@ namespace Test.Search.Controllers
         IRequestable C = new ExternalC();
         IRequestable D = new ExternalD();
         IStorage<Metric> MetricStorage;
+
         public BaseController(IStorage<Metric> inputRealisationOfStorage)
         {
             MetricStorage = inputRealisationOfStorage;
@@ -28,16 +28,19 @@ namespace Test.Search.Controllers
         [HttpGet]
         public async Task <IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
+            //токен для прекращения ожидания результатов запроса
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
-            Task TaskToCancelRequest = Task.Run(() =>
+            
+            //задача на прекращение ожидания
+            Task TaskToCancelWaitingRequests = Task.Run(() =>
             {
                 int waitTimeToSeconds = wait * 1000;
                 Thread.Sleep(waitTimeToSeconds);
                 source.Cancel();
             });
 
-            return await Task.Run(async()=>
+            return await Task.Run(()=>
             {
                 //запрос к системе A
                 Task<Metric> MakeRequestToSystemA =  Task.Run(() => MakeMetric(A,randomMin,randomMax,token),token);
@@ -61,9 +64,10 @@ namespace Test.Search.Controllers
                     if(resultFromSearchingSystemC.Result=="OK")
                     {
                         //запрос к системе D
-                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token),token);
+                        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax, token), TaskCreationOptions.AttachedToParent);
                         //запись метрики
-                        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
+                        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result),TaskContinuationOptions.ExecuteSynchronously);
+                        MakeRequestToSystemD.Wait();
                     }
                 });
                 //ждем выполнения запросов
@@ -76,7 +80,6 @@ namespace Test.Search.Controllers
         private Metric MakeMetric(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)
         {
             Metric newMetric = new Metric();
-            newMetric.RequestableSystem = SearchingSystem;
             newMetric.NameOfSearchingSystem = SearchingSystem.SearchingSystemName;
             newMetric.Result = SearchingSystem.Request(randomMin, randomMax, token);
             newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
