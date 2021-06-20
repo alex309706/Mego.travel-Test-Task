@@ -45,8 +45,6 @@ namespace Test.Search.Models
         {
             return MetricData.FirstOrDefault(Metric=>Metric.MetricID == ID);
         }
-
-     
         public void Update(Metric instatceToUpdate)
         {
             if (instatceToUpdate == null)
