@@ -54,8 +54,10 @@ namespace Test.Search.Controllers
                 //запись метрики
                 Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
                 {
+                    //получение результата из запроса к системе C, чтобы проверить, нужно ли делать запрос к системе D
                     Metric resultFromSearchingSystemC = MakeRequestToSystemC.Result;
                     MetricStorage.Create(resultFromSearchingSystemC);
+                    //по условию задания
                     if(resultFromSearchingSystemC.Result=="OK")
                     {
                         //запрос к системе D
@@ -64,11 +66,13 @@ namespace Test.Search.Controllers
                         Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
                     }
                 });
+                //ждем выполнения запросов
                 await Task.WhenAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC });
                 return MetricStorage;
             });
         }
 
+        //создание метрики
         private Metric MakeMetric(IRequestable SearchingSystem, int randomMin, int randomMax,CancellationToken token)
         {
             Metric newMetric = new Metric();
