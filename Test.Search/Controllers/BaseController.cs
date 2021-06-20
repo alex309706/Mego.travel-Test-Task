@@ -28,6 +28,7 @@ namespace Test.Search.Controllers
         [HttpGet]
         public async Task <IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
+            List<Metric> MetricsFromCurrentRequest = new List<Metric>();
             //токен для прекращения ожидания результатов запроса
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
@@ -73,6 +74,7 @@ namespace Test.Search.Controllers
                 //ждем выполнения запросов
                 Task.WaitAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC});
                 return MetricStorage;
+                
             },token);
         }
 
@@ -81,7 +83,7 @@ namespace Test.Search.Controllers
         {
             Metric newMetric = new Metric();
             newMetric.NameOfSearchingSystem = SearchingSystem.SearchingSystemName;
-            newMetric.Result = SearchingSystem.Request(randomMin, randomMax, token);
+            newMetric.Result = SearchingSystem.Request(randomMin, randomMax);
             newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
             return newMetric;
         }

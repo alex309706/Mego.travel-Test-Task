@@ -11,7 +11,7 @@ namespace Test.Search.Models
 
         public long RequestTime { get; set; }
         
-        public string Request(int minimalExecutionTime, int maximumExecutiontime, CancellationToken token)
+        public string Request(int minimalExecutionTime, int maximumExecutiontime)
         {
             //для плдсчета времени выполнения запроса
             Stopwatch stopwatchToGetSpentTimeForRequest = new Stopwatch();
@@ -25,16 +25,7 @@ namespace Test.Search.Models
 
                 int executionTime = rnd.Next(minimalExecutionTimeToSeconds, maximumExecutiontimeToSeconds);
 
-                //имитация выполнения запроса...Магическое число 100 т.к. если я останавливаю поток на 1 мс, то происходит "вечное ожидание"
-                for (int i = 0; i < executionTime; i+=100)
-                {
-                    if (token.IsCancellationRequested)
-                    {
-                        return "TIMEOUT";
-                    }
-                    Thread.Sleep(100);
-                }
-                //проверка ожидания данных от запроса
+                Thread.Sleep(executionTime);
               
                 int flagToResult = rnd.Next(0, 100);
 
