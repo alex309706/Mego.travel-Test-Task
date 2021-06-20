@@ -5,6 +5,6 @@
         int MetricID { get; set; }
         public string NameOfSearchingSystem { get; set; }
         string Result { get; set; }
-        long TimeSpentToRequest { get; set; }
+        int? TimeSpentToRequest { get; set; }
     }
 }

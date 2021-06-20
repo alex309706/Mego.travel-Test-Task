@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,13 +27,13 @@ namespace Test.Search.Controllers
 
         [Route("/api/[controller]/Search")]
         [HttpGet]
-        public async Task <IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
+        public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
             List<Metric> MetricsFromCurrentRequest = new List<Metric>();
             //токен для прекращения ожидания результатов запроса
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
-            
+
             //задача на прекращение ожидания
             Task TaskToCancelWaitingRequests = Task.Run(() =>
             {
@@ -41,60 +42,48 @@ namespace Test.Search.Controllers
                 source.Cancel();
             });
 
-            return await Task.Run(()=>
+            return await Task.Run(() =>
             {
-                Task<string> MakeRequestToSystemA = Task.Run(() => GetRequestResult(A,randomMin,randomMax),token);
+                Task<string> MakeRequestToSystemA = Task.Run(() => GetRequestResult(A, randomMin, randomMax), token);
                 Task<string> MakeRequestToSystemB = Task.Run(() => GetRequestResult(B, randomMin, randomMax), token);
                 Task<string> MakeRequestToSystemC = Task.Run(() => GetRequestResult(C, randomMin, randomMax), token);
                 Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(A, MakeRequestToSystemA.Result)));
                 Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(B, MakeRequestToSystemB.Result)));
-                Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask)=> MetricStorage.Create(MakeMetric(C, MakeRequestToSystemC.Result)));
+                Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(C, MakeRequestToSystemC.Result)));
 
 
-                ////запись метрики
-                //Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemA.Result));
-
-                ////запрос к системе B
-                //Task<Metric> MakeRequestToSystemB = Task.Run(()=> MakeMetric(B, randomMin, randomMax), token);
-                ////запись метрики
-                //Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemB.Result));
-
-                ////запрос к системе C
-                //Task<Metric> MakeRequestToSystemC = Task.Run(() => MakeMetric(C, randomMin, randomMax),token);
-                ////запись метрики
-                //Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => 
-                //{
-                //    //получение результата из запроса к системе C, чтобы проверить, нужно ли делать запрос к системе D
-                //    Metric resultFromSearchingSystemC = MakeRequestToSystemC.Result;
-                //    MetricStorage.Create(resultFromSearchingSystemC);
-                //    //по условию задания
-                //    if(resultFromSearchingSystemC.Result=="OK")
-                //    {
-                //        //запрос к системе D
-                //        Task<Metric> MakeRequestToSystemD = Task.Factory.StartNew(() => MakeMetric(D, randomMin, randomMax));
-                //        //запись метрики
-                //        Task continuationTaskToWriteMetricForSystemD = MakeRequestToSystemD.ContinueWith((prevTask) => MetricStorage.Create(MakeRequestToSystemD.Result));
-                //        MakeRequestToSystemD.Wait();
-                //    }
-                //});
                 //ждем выполнения запросов
-                Task.WaitAll(new [] { MakeRequestToSystemA, MakeRequestToSystemB,MakeRequestToSystemC});
+                Task.WaitAll(new[] { MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC });
                 return MetricStorage;
-            },token);
+            });
         }
 
         //создание метрики
-        private Metric MakeMetric(IRequestable SearchingSystem,string result)
+        private Metric MakeMetric(RequestState requestState)
         {
+
             Metric newMetric = new Metric();
-            newMetric.NameOfSearchingSystem = SearchingSystem.SearchingSystemName;
-            newMetric.Result = result;
-            newMetric.TimeSpentToRequest = SearchingSystem.RequestTime;
+            newMetric.NameOfSearchingSystem = requestState.System.SearchingSystemName;
+            newMetric.Result = requestState.Status != RequestState.RequestStatus.Completed ? "TIMEOUT" : requestState.Result;
+            newMetric.TimeSpentToRequest = requestState.ExecutionTime;
             return newMetric;
         }
-        private string GetRequestResult(IRequestable SearchingSystem, int randomMin,int randomMax)
+        private async Task<string> GetRequestResult(IRequestable SearchingSystem, int randomMin, int randomMax)
         {
-          return SearchingSystem.Request(randomMin, randomMax);
+            //для подсчета времени выполнения запроса
+            Stopwatch stopwatchToGetSpentTimeForRequest = new Stopwatch();
+            try
+            {
+                stopwatchToGetSpentTimeForRequest.Start();
+                return await Task.Run(() => SearchingSystem.Request(randomMin, randomMax));
+
+            }
+            finally
+            {
+                stopwatchToGetSpentTimeForRequest.Stop();
+                //RequestTime = stopwatchToGetSpentTimeForRequest.ElapsedMilliseconds;
+            }
+          
         }
 
         [Route("/api/[controller]/Metrics")]
@@ -103,14 +92,27 @@ namespace Test.Search.Controllers
         {
             //группировка по секундам осуществляется путем преобразования мс в сек (/1000) и округления до ближайшего целого с помощью Math.Round
             //2 приведения типа...Скорее всего,можно улучшить
-            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest/1000))
+            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest / 1000))
                 .Select(group => new Report
                 {
-                    TimeSpentToRequest = group.Key, 
-                    CountOfRequests= group.Count(),
-                    ReportCollection = group.Select(metric=>metric)
+                    TimeSpentToRequest = group.Key,
+                    CountOfRequests = group.Count(),
+                    ReportCollection = group.Select(metric => metric)
                 });
             return Reports;
         }
+    }
+    class RequestState
+    {
+        public enum RequestStatus
+        {
+            Initialized = 0,
+            Running = 1,
+            Completed = 2,
+        };
+        public int? ExecutionTime { get; set; }
+        public IRequestable System { get; set; }
+        public RequestStatus Status { get; set; }
+        public string Result { get; set; }
     }
 }

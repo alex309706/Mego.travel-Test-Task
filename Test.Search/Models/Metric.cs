@@ -7,6 +7,6 @@ namespace Test.Search.Models
         public int MetricID { get; set; }
         public string NameOfSearchingSystem { get; set; }
         public string Result { get; set; }
-        public long TimeSpentToRequest { get; set; }
+        public int? TimeSpentToRequest { get; set; }
     }
 }

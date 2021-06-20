@@ -9,39 +9,26 @@ namespace Test.Search.Models
     {
         public string SearchingSystemName => "External Searching System A";
 
-        public long RequestTime { get; set; }
-        
         public string Request(int minimalExecutionTime, int maximumExecutiontime)
         {
-            //для плдсчета времени выполнения запроса
-            Stopwatch stopwatchToGetSpentTimeForRequest = new Stopwatch();
-            try
+            Random rnd = new Random();
+            //для генерации случайного времени выполнения запроса
+            int minimalExecutionTimeToSeconds = minimalExecutionTime * 1000;
+            int maximumExecutiontimeToSeconds = maximumExecutiontime * 1000;
+
+            int executionTime = rnd.Next(minimalExecutionTimeToSeconds, maximumExecutiontimeToSeconds);
+
+            Thread.Sleep(executionTime);
+
+            int flagToResult = rnd.Next(0, 100);
+
+            if (flagToResult % 2 == 0)
             {
-                stopwatchToGetSpentTimeForRequest.Start();
-                Random rnd = new Random();
-                //для генерации случайного времени выполнения запроса
-                int minimalExecutionTimeToSeconds = minimalExecutionTime * 1000;
-                int maximumExecutiontimeToSeconds = maximumExecutiontime * 1000;
-
-                int executionTime = rnd.Next(minimalExecutionTimeToSeconds, maximumExecutiontimeToSeconds);
-
-                Thread.Sleep(executionTime);
-              
-                int flagToResult = rnd.Next(0, 100);
-
-                if (flagToResult % 2 == 0)
-                {
-                    return "OK";
-                }
-                else
-                {
-                    return "ERROR";
-                }
+                return "OK";
             }
-            finally
+            else
             {
-                stopwatchToGetSpentTimeForRequest.Stop();
-                RequestTime = stopwatchToGetSpentTimeForRequest.ElapsedMilliseconds;
+                return "ERROR";
             }
         }
     }
