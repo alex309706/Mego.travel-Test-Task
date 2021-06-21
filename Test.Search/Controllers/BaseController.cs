@@ -24,14 +24,25 @@ namespace Test.Search.Controllers
         {
             MetricStorage = inputRealisationOfStorage;
         }
-
+        //Создать api-метод GET Search
+        //Данный метод вызывает параллельно запросы в системах A, B, C.
+        //Если система C вернула результат OK, тогда отправляем запрос еще и в систему D.
+        //URL-параметры : Search? wait = X & randomMin = Y & randomMax = Z
+        //Х – время, в течение которого метод Search ждет ответы от всех внешних систем.Если система не ответила вовремя, мы не ждем ее результат.
+        //Общая длительность выполнения Search не должна превышать X более чем на 100 мс.
+        //Y – минимальное значения диапазона Random(). Передается в метод Request системы.
+        //Z – максимальное значение диапазона Random().Передается в метод Requestсистемы.
+        //Метод Search должен вернуть: Список всех систем, с данными по каждой системе: название, результат выполнения запроса OK/ERROR/TIMEOUT,
+        //сколько это заняло времени в миллисекундах
         [Route("/api/[controller]/Search")]
         [HttpGet]
         public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
+            //список состояний запроса, на основании которых будем создавать метрики по текущему запросу
             List<RequestState> RequestsStates = new List<RequestState>();
+            //список метрик из текущего запроса
             List<Metric> MetricsFromCurrentRequest = new List<Metric>();
-            //токен для прекращения ожидания результатов запроса
+            //токен для прекращения ожидания результатов запроса...Пока не разобрался как он работает
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
             int waitTimeToMilliseconds = wait * 1000;
@@ -42,12 +53,12 @@ namespace Test.Search.Controllers
                 source.Cancel();
             });
 
-            return await Task.Run(() =>
+            //Получилось громоздко, но я пока не знаю как это отрефакторить
+            await Task.Run(() =>
             {
-                Task<RequestState> MakeRequestToSystemA = Task.Run(() =>
+                Task<RequestState> MakeRequestToSystemA = Task.Run(async () =>
                 {
                     RequestState requestState = new RequestState();
-                    requestState.RequestStateId = RequestsStates.Count()+1;
                     requestState.System = A;
                     requestState.Status = RequestState.RequestStatus.Initialized;
                     requestState.ExecutionTime = waitTimeToMilliseconds;
@@ -55,10 +66,10 @@ namespace Test.Search.Controllers
                     //подсчет времени выполнения
                     Stopwatch sw = new Stopwatch();
                     sw.Start();
-                    requestState.Result = GetRequestResult(A, randomMin, randomMax).Result;
+                    requestState.Result = await GetRequestResult(A, randomMin, randomMax);
                     sw.Stop();
                     //приведение к секундам
-                    if (token.IsCancellationRequested!=true)
+                    if (token.IsCancellationRequested != true)
                     {
                         requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
                         requestState.Status = RequestState.RequestStatus.Completed;
@@ -66,27 +77,77 @@ namespace Test.Search.Controllers
                     else
                     {
                         requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.RequestStateId == requestState.RequestStateId );
+                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == A);
                         requestStateToChange.ExecutionTime = requestState.ExecutionTime;
                     }
                     return requestState;
-                },token);
-                if (MakeRequestToSystemA.Result.Status==RequestState.RequestStatus.Completed)
+                }, token);
+                Task<RequestState> MakeRequestToSystemB = Task.Run(async () =>
                 {
-                    Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricsFromCurrentRequest.Add(MakeMetric(MakeRequestToSystemA.Result)));
+                    RequestState requestState = new RequestState();
+                    requestState.System = B;
+                    requestState.Status = RequestState.RequestStatus.Initialized;
+                    requestState.ExecutionTime = waitTimeToMilliseconds;
+                    RequestsStates.Add(requestState);
+                    //подсчет времени выполнения
+                    Stopwatch sw = new Stopwatch();
+                    sw.Start();
+                    requestState.Result = await GetRequestResult(B, randomMin, randomMax);
+                    sw.Stop();
+                    //приведение к секундам
+                    if (token.IsCancellationRequested != true)
+                    {
+                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                        requestState.Status = RequestState.RequestStatus.Completed;
+                    }
+                    else
+                    {
+                        requestState.ExecutionTime = waitTimeToMilliseconds;
+                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == B);
+                        requestStateToChange.ExecutionTime = requestState.ExecutionTime;
+                    }
+                    return requestState;
+                }, token);
+                Task<RequestState> MakeRequestToSystemC = Task.Run(async () =>
+                {
+                    RequestState requestState = new RequestState();
+                    requestState.System = C;
+                    requestState.Status = RequestState.RequestStatus.Initialized;
+                    requestState.ExecutionTime = waitTimeToMilliseconds;
+                    RequestsStates.Add(requestState);
+                    //подсчет времени выполнения
+                    Stopwatch sw = new Stopwatch();
+                    sw.Start();
+                    requestState.Result = await GetRequestResult(C, randomMin, randomMax);
+                    sw.Stop();
+                    //приведение к секундам
+                    if (token.IsCancellationRequested != true)
+                    {
+                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                        requestState.Status = RequestState.RequestStatus.Completed;
+                    }
+                    else
+                    {
+                        requestState.ExecutionTime = waitTimeToMilliseconds;
+                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == C);
+                        requestStateToChange.ExecutionTime = requestState.ExecutionTime;
+                    }
+                    return requestState;
+                }, token);
+
+                if (MakeRequestToSystemC.Result.Result == "OK")
+                {
+
                 }
-
-                //Task<string> MakeRequestToSystemB = Task.Run(() => GetRequestResult(B, randomMin, randomMax), token);
-                //Task<string> MakeRequestToSystemC = Task.Run(() => GetRequestResult(C, randomMin, randomMax), token);
-                //Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(A, MakeRequestToSystemA.Result)));
-                //Task continuationTaskToWriteMetricForSystemB = MakeRequestToSystemB.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(B, MakeRequestToSystemB.Result)));
-                //Task continuationTaskToWriteMetricForSystemC = MakeRequestToSystemC.ContinueWith((prevTask) => MetricStorage.Create(MakeMetric(C, MakeRequestToSystemC.Result)));
-
-
                 //ждем выполнения запросов
-                Task.Delay(waitTimeToMilliseconds);
-                
+                Task.WaitAll(MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC);
                 //Task.WaitAll(new[] { MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC });
+
+            });
+
+            //заполнение метрик
+            return await Task.Run(() =>
+            {
                 foreach (var requestState in RequestsStates)
                 {
                     MetricsFromCurrentRequest.Add(MakeMetric(requestState));
@@ -106,21 +167,26 @@ namespace Test.Search.Controllers
             Metric newMetric = new Metric();
             newMetric.NameOfSearchingSystem = requestState.System.SearchingSystemName;
             newMetric.Result = requestState.Status != RequestState.RequestStatus.Completed ? "TIMEOUT" : requestState.Result;
-            newMetric.TimeSpentToRequest = requestState.ExecutionTime == null ? 0:requestState.ExecutionTime;
+            newMetric.TimeSpentToRequest = requestState.ExecutionTime == null ? 0 : requestState.ExecutionTime;
             return newMetric;
         }
+        //задача на получение ответа от системы
         private Task<string> GetRequestResult(IRequestable SearchingSystem, int randomMin, int randomMax)
         {
-            return Task.Run(()=>SearchingSystem.Request(randomMin, randomMax));
+            return Task.Run(() => SearchingSystem.Request(randomMin, randomMax));
         }
 
+
+        //Создать api-метод GET Metrics, который должен выводить отчет: 
+        // Посекундная группировка(1 сек, 2 сек, ...) и названию системы, количество запросов внутри этой группы.
+        //Возвращать ответ в любом формате.
         [Route("/api/[controller]/Metrics")]
         [HttpGet]
         public IEnumerable<Report> Metrics()
         {
             //группировка по секундам осуществляется путем преобразования мс в сек (/1000) и округления до ближайшего целого с помощью Math.Round
             //2 приведения типа...Скорее всего,можно улучшить
-            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest/1000))
+            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest / 1000))
                 .Select(group => new Report
                 {
                     TimeSpentToRequest = group.Key,
@@ -130,6 +196,8 @@ namespace Test.Search.Controllers
             return Reports;
         }
     }
+
+    //для отслеживания состояния запроса
     class RequestState
     {
         public enum RequestStatus
@@ -138,7 +206,6 @@ namespace Test.Search.Controllers
             Running = 1,
             Completed = 2,
         };
-        public int RequestStateId { get; set; }
         public int? ExecutionTime { get; set; }
         public IRequestable System { get; set; }
         public RequestStatus Status { get; set; }
