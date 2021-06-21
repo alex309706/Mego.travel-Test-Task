@@ -42,7 +42,7 @@ namespace Test.Search.Controllers
             List<RequestState> RequestsStates = new List<RequestState>();
             //список метрик из текущего запроса
             List<Metric> MetricsFromCurrentRequest = new List<Metric>();
-            //токен для прекращения ожидания результатов запроса...Пока не разобрался как он работает
+            //токен для прекращения ожидания результатов запроса...Пока не разобрался как его правильно использовать.
             CancellationTokenSource source = new CancellationTokenSource();
             CancellationToken token = source.Token;
             int waitTimeToMilliseconds = wait * 1000;
@@ -134,20 +134,43 @@ namespace Test.Search.Controllers
                     }
                     return requestState;
                 }, token);
-
                 if (MakeRequestToSystemC.Result.Result == "OK")
                 {
-
+                    Task<RequestState> MakeRequestToSystemD = Task.Run(async () =>
+                    {
+                        RequestState requestState = new RequestState();
+                        requestState.System = D;
+                        requestState.Status = RequestState.RequestStatus.Initialized;
+                        requestState.ExecutionTime = waitTimeToMilliseconds;
+                        RequestsStates.Add(requestState);
+                        //подсчет времени выполнения
+                        Stopwatch sw = new Stopwatch();
+                        sw.Start();
+                        requestState.Result = await GetRequestResult(D, randomMin, randomMax);
+                        sw.Stop();
+                        //приведение к секундам
+                        if (token.IsCancellationRequested != true)
+                        {
+                            requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                            requestState.Status = RequestState.RequestStatus.Completed;
+                        }
+                        else
+                        {
+                            requestState.ExecutionTime = waitTimeToMilliseconds;
+                            RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == D);
+                            requestStateToChange.ExecutionTime = requestState.ExecutionTime;
+                        }
+                        return requestState;
+                    }, token);
                 }
                 //ждем выполнения запросов
                 Task.WaitAll(MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC);
-                //Task.WaitAll(new[] { MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC });
-
             });
 
             //заполнение метрик
             return await Task.Run(() =>
             {
+                //костыль для возможности записать результат для системы D
                 foreach (var requestState in RequestsStates)
                 {
                     MetricsFromCurrentRequest.Add(MakeMetric(requestState));
@@ -159,7 +182,6 @@ namespace Test.Search.Controllers
                 return MetricsFromCurrentRequest;
             });
         }
-
 
         //создание метрики
         private Metric MakeMetric(RequestState requestState)
@@ -195,20 +217,5 @@ namespace Test.Search.Controllers
                 });
             return Reports;
         }
-    }
-
-    //для отслеживания состояния запроса
-    class RequestState
-    {
-        public enum RequestStatus
-        {
-            Initialized = 0,
-            Running = 1,
-            Completed = 2,
-        };
-        public int? ExecutionTime { get; set; }
-        public IRequestable System { get; set; }
-        public RequestStatus Status { get; set; }
-        public string Result { get; set; }
     }
 }
