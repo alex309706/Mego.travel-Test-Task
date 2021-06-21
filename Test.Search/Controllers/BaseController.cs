@@ -14,6 +14,7 @@ namespace Test.Search.Controllers
     [ApiController]
     public class BaseController : ControllerBase
     {
+
         IRequestable A = new ExternalA();
         IRequestable B = new ExternalB();
         IRequestable C = new ExternalC();
@@ -38,7 +39,6 @@ namespace Test.Search.Controllers
         [HttpGet]
         public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
-            object locker = new object();
             //список состояний запроса, на основании которых будем создавать метрики по текущему запросу
             List<RequestState> RequestsStates = new List<RequestState>();
             //список метрик из текущего запроса
@@ -54,33 +54,20 @@ namespace Test.Search.Controllers
                 source.Cancel();
             });
 
-            //Получилось громоздко, но я пока не знаю как это отрефакторить
-            await Task.Run(() =>
+            IRequestable[] SystemsToDoParallelRequest = new IRequestable[3] { A, B, C };
+
+            ParallelLoopResult result =  Parallel.ForEach(SystemsToDoParallelRequest, item=>
             {
-                Task<RequestState> MakeRequestToSystemA = Task.Run(async () =>
-                {
-                    return await GetRequestState(A, wait, randomMin, randomMax, RequestsStates, token);
-                });
-                Task<RequestState> MakeRequestToSystemB = Task.Run(async () =>
-                {
-                    return await GetRequestState(B, wait, randomMin, randomMax, RequestsStates, token);
-                });
-                Task<RequestState> MakeRequestToSystemC = Task.Run(async () =>
-                {
-                    return await GetRequestState(C, wait, randomMin, randomMax, RequestsStates, token);
-                });
-                if (MakeRequestToSystemC.Result.Result == "OK")
-                {
-                    Task<RequestState> MakeRequestToSystemD = Task.Run(async () =>
-                    {
-                        return await GetRequestState(D, wait, randomMin, randomMax, RequestsStates, token);
-                    });
-                }
-                ////ждем выполнения запросов
-                Task.WaitAll(MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC);
-
-
+                var requesState = GetRequestState(item, wait, randomMin, randomMax, RequestsStates, token).Result;
+                RequestsStates.Add(requesState);
             });
+            if (RequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
+            {
+                Task<RequestState> MakeRequestToSystemD = Task.Run(() =>
+                {
+                    return GetRequestState(D, wait, randomMin, randomMax, RequestsStates, token);
+                });
+            }
             //заполнение метрик
             return await Task.Run(() =>
             {
@@ -105,9 +92,10 @@ namespace Test.Search.Controllers
             requestState.ExecutionTime = waitTimeToMilliseconds;
             RequestsStates.Add(requestState);
             //подсчет времени выполнения
+
             Stopwatch sw = new Stopwatch();
             sw.Start();
-            requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax);
+            requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax, token);
             sw.Stop();
             //приведение к секундам
             if (token.IsCancellationRequested != true)
@@ -134,9 +122,9 @@ namespace Test.Search.Controllers
             return newMetric;
         }
         //задача на получение ответа от системы
-        private Task<string> GetRequestResult(IRequestable SearchingSystem, int randomMin, int randomMax)
+        private Task<string> GetRequestResult(IRequestable SearchingSystem, int randomMin, int randomMax, CancellationToken token)
         {
-            return Task.Run(() => SearchingSystem.Request(randomMin, randomMax));
+            return Task.Run(() => SearchingSystem.Request(randomMin, randomMax), token);
         }
 
 
