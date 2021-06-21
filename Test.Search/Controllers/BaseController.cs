@@ -38,6 +38,7 @@ namespace Test.Search.Controllers
         [HttpGet]
         public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
+            object locker = new object();
             //список состояний запроса, на основании которых будем создавать метрики по текущему запросу
             List<RequestState> RequestsStates = new List<RequestState>();
             //список метрик из текущего запроса
@@ -58,118 +59,28 @@ namespace Test.Search.Controllers
             {
                 Task<RequestState> MakeRequestToSystemA = Task.Run(async () =>
                 {
-                    RequestState requestState = new RequestState();
-                    requestState.System = A;
-                    requestState.Status = RequestState.RequestStatus.Initialized;
-                    requestState.ExecutionTime = waitTimeToMilliseconds;
-                    RequestsStates.Add(requestState);
-                    //подсчет времени выполнения
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-                    requestState.Result = await GetRequestResult(A, randomMin, randomMax);
-                    sw.Stop();
-                    //приведение к секундам
-                    if (token.IsCancellationRequested != true)
-                    {
-                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                        requestState.Status = RequestState.RequestStatus.Completed;
-                    }
-                    else
-                    {
-                        requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == A);
-                        requestStateToChange.ExecutionTime = requestState.ExecutionTime;
-                    }
-                    return requestState;
-                }, token);
+                    return await GetRequestState(A, wait, randomMin, randomMax, RequestsStates, token);
+                });
                 Task<RequestState> MakeRequestToSystemB = Task.Run(async () =>
                 {
-                    RequestState requestState = new RequestState();
-                    requestState.System = B;
-                    requestState.Status = RequestState.RequestStatus.Initialized;
-                    requestState.ExecutionTime = waitTimeToMilliseconds;
-                    RequestsStates.Add(requestState);
-                    //подсчет времени выполнения
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-                    requestState.Result = await GetRequestResult(B, randomMin, randomMax);
-                    sw.Stop();
-                    //приведение к секундам
-                    if (token.IsCancellationRequested != true)
-                    {
-                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                        requestState.Status = RequestState.RequestStatus.Completed;
-                    }
-                    else
-                    {
-                        requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == B);
-                        requestStateToChange.ExecutionTime = requestState.ExecutionTime;
-                    }
-                    return requestState;
-                }, token);
+                    return await GetRequestState(B, wait, randomMin, randomMax, RequestsStates, token);
+                });
                 Task<RequestState> MakeRequestToSystemC = Task.Run(async () =>
                 {
-                    RequestState requestState = new RequestState();
-                    requestState.System = C;
-                    requestState.Status = RequestState.RequestStatus.Initialized;
-                    requestState.ExecutionTime = waitTimeToMilliseconds;
-                    RequestsStates.Add(requestState);
-                    //подсчет времени выполнения
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-                    requestState.Result = await GetRequestResult(C, randomMin, randomMax);
-                    sw.Stop();
-                    //приведение к секундам
-                    if (token.IsCancellationRequested != true)
-                    {
-                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                        requestState.Status = RequestState.RequestStatus.Completed;
-                    }
-                    else
-                    {
-                        requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == C);
-                        requestStateToChange.ExecutionTime = requestState.ExecutionTime;
-                    }
-                    return requestState;
-                }, token);
+                    return await GetRequestState(C, wait, randomMin, randomMax, RequestsStates, token);
+                });
                 if (MakeRequestToSystemC.Result.Result == "OK")
                 {
                     Task<RequestState> MakeRequestToSystemD = Task.Run(async () =>
                     {
-                        RequestState requestState = new RequestState();
-                        requestState.System = D;
-                        requestState.Status = RequestState.RequestStatus.Initialized;
-                        requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestsStates.Add(requestState);
-                        //подсчет времени выполнения
-                        Stopwatch sw = new Stopwatch();
-                        sw.Start();
-                        requestState.Result = await GetRequestResult(D, randomMin, randomMax);
-                        sw.Stop();
-                        //приведение к секундам
-                        if (token.IsCancellationRequested != true)
-                        {
-                            requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                            requestState.Status = RequestState.RequestStatus.Completed;
-                        }
-                        else
-                        {
-                            requestState.ExecutionTime = waitTimeToMilliseconds;
-                            RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == D);
-                            requestStateToChange.ExecutionTime = requestState.ExecutionTime;
-                        }
-                        return requestState;
-                    }, token);
-                    //костыль для возможности записать результат для системы D
-                    MakeRequestToSystemD.Wait();
+                        return await GetRequestState(D, wait, randomMin, randomMax, RequestsStates, token);
+                    });
                 }
-                //ждем выполнения запросов
+                ////ждем выполнения запросов
                 Task.WaitAll(MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC);
-                
-            });
 
+
+            });
             //заполнение метрик
             return await Task.Run(() =>
             {
@@ -183,6 +94,34 @@ namespace Test.Search.Controllers
                 }
                 return MetricsFromCurrentRequest;
             });
+        }
+        private async Task<RequestState> GetRequestState(IRequestable SearchingSystem, int wait, int randomMin, int randomMax, List<RequestState> RequestsStates, CancellationToken token)
+        {
+            RequestState requestState = new RequestState();
+            requestState.System = SearchingSystem;
+            requestState.Status = RequestState.RequestStatus.Initialized;
+            //для перевода в миллисекунды
+            int waitTimeToMilliseconds = wait * 1000;
+            requestState.ExecutionTime = waitTimeToMilliseconds;
+            RequestsStates.Add(requestState);
+            //подсчет времени выполнения
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax);
+            sw.Stop();
+            //приведение к секундам
+            if (token.IsCancellationRequested != true)
+            {
+                requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                requestState.Status = RequestState.RequestStatus.Completed;
+            }
+            else
+            {
+                requestState.ExecutionTime = waitTimeToMilliseconds;
+                RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == SearchingSystem);
+                requestStateToChange.ExecutionTime = requestState.ExecutionTime;
+            }
+            return requestState;
         }
 
         //создание метрики
