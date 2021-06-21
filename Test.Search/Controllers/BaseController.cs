@@ -162,15 +162,17 @@ namespace Test.Search.Controllers
                         }
                         return requestState;
                     }, token);
+                    //костыль для возможности записать результат для системы D
+                    MakeRequestToSystemD.Wait();
                 }
                 //ждем выполнения запросов
                 Task.WaitAll(MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC);
+                
             });
 
             //заполнение метрик
             return await Task.Run(() =>
             {
-                //костыль для возможности записать результат для системы D
                 foreach (var requestState in RequestsStates)
                 {
                     MetricsFromCurrentRequest.Add(MakeMetric(requestState));
