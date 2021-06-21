@@ -30,7 +30,6 @@ namespace Test.Search.Controllers
         public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
             List<RequestState> RequestsStates = new List<RequestState>();
-
             List<Metric> MetricsFromCurrentRequest = new List<Metric>();
             //токен для прекращения ожидания результатов запроса
             CancellationTokenSource source = new CancellationTokenSource();
@@ -45,46 +44,37 @@ namespace Test.Search.Controllers
 
             return await Task.Run(() =>
             {
-                Task<RequestState> MakeRequestToSystemA = Task.Run(async() =>
+                Task<RequestState> MakeRequestToSystemA = Task.Run(() =>
                 {
                     RequestState requestState = new RequestState();
                     requestState.RequestStateId = RequestsStates.Count()+1;
                     requestState.System = A;
                     requestState.Status = RequestState.RequestStatus.Initialized;
-                    requestState.ExecutionTime = 0;
+                    requestState.ExecutionTime = waitTimeToMilliseconds;
                     RequestsStates.Add(requestState);
                     //подсчет времени выполнения
                     Stopwatch sw = new Stopwatch();
                     sw.Start();
-                    requestState.Result = await GetRequestResult(A, randomMin, randomMax);
+                    requestState.Result = GetRequestResult(A, randomMin, randomMax).Result;
                     sw.Stop();
                     //приведение к секундам
                     if (token.IsCancellationRequested!=true)
                     {
-                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds / 1000;
+                        requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
                         requestState.Status = RequestState.RequestStatus.Completed;
                     }
                     else
                     {
                         requestState.ExecutionTime = waitTimeToMilliseconds;
-                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.RequestStateId ==requestState.RequestStateId );
+                        RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.RequestStateId == requestState.RequestStateId );
                         requestStateToChange.ExecutionTime = requestState.ExecutionTime;
                     }
                     return requestState;
                 },token);
-                if(MakeRequestToSystemA.Result.Status==RequestState.RequestStatus.Completed)
+                if (MakeRequestToSystemA.Result.Status==RequestState.RequestStatus.Completed)
                 {
                     Task continuationTaskToWriteMetricForSystemA = MakeRequestToSystemA.ContinueWith((prevTask) => MetricsFromCurrentRequest.Add(MakeMetric(MakeRequestToSystemA.Result)));
                 }
-                if (MakeRequestToSystemA.IsCompleted== false)
-                {
-                    RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.RequestStateId == requestState.RequestStateId);
-                    requestStateToChange.Result = "TIMEOUT";
-                }
-
-
-
-
 
                 //Task<string> MakeRequestToSystemB = Task.Run(() => GetRequestResult(B, randomMin, randomMax), token);
                 //Task<string> MakeRequestToSystemC = Task.Run(() => GetRequestResult(C, randomMin, randomMax), token);
@@ -94,13 +84,17 @@ namespace Test.Search.Controllers
 
 
                 //ждем выполнения запросов
-                Task.WaitAll(new[] { MakeRequestToSystemA });
+                Task.Delay(waitTimeToMilliseconds);
+                
                 //Task.WaitAll(new[] { MakeRequestToSystemA, MakeRequestToSystemB, MakeRequestToSystemC });
+                foreach (var requestState in RequestsStates)
+                {
+                    MetricsFromCurrentRequest.Add(MakeMetric(requestState));
+                }
                 foreach (var metricFromCurrentRequest in MetricsFromCurrentRequest)
                 {
                     MetricStorage.Add(metricFromCurrentRequest);
                 }
-               
                 return MetricsFromCurrentRequest;
             });
         }
@@ -112,7 +106,7 @@ namespace Test.Search.Controllers
             Metric newMetric = new Metric();
             newMetric.NameOfSearchingSystem = requestState.System.SearchingSystemName;
             newMetric.Result = requestState.Status != RequestState.RequestStatus.Completed ? "TIMEOUT" : requestState.Result;
-            newMetric.TimeSpentToRequest = requestState.ExecutionTime ==null ? 0:requestState.ExecutionTime;
+            newMetric.TimeSpentToRequest = requestState.ExecutionTime == null ? 0:requestState.ExecutionTime;
             return newMetric;
         }
         private Task<string> GetRequestResult(IRequestable SearchingSystem, int randomMin, int randomMax)
@@ -126,7 +120,7 @@ namespace Test.Search.Controllers
         {
             //группировка по секундам осуществляется путем преобразования мс в сек (/1000) и округления до ближайшего целого с помощью Math.Round
             //2 приведения типа...Скорее всего,можно улучшить
-            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest / 1000))
+            var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest/1000))
                 .Select(group => new Report
                 {
                     TimeSpentToRequest = group.Key,
