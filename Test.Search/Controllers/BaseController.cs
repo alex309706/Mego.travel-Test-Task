@@ -56,11 +56,11 @@ namespace Test.Search.Controllers
 
             IRequestable[] SystemsToDoParallelRequest = new IRequestable[3] { A, B, C };
 
-            ParallelLoopResult result =  Parallel.ForEach(SystemsToDoParallelRequest, item=>
-            {
-                var requesState = GetRequestState(item, wait, randomMin, randomMax, RequestsStates, token).Result;
-                RequestsStates.Add(requesState);
-            });
+            ParallelLoopResult result = Parallel.ForEach(SystemsToDoParallelRequest, SearchingSystem =>
+           {
+               var requesState = GetRequestState(SearchingSystem, wait, randomMin, randomMax, RequestsStates, token).Result;
+               RequestsStates.Add(requesState);
+           });
             if (RequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
             {
                 Task<RequestState> MakeRequestToSystemD = Task.Run(() =>
@@ -133,18 +133,31 @@ namespace Test.Search.Controllers
         //Возвращать ответ в любом формате.
         [Route("/api/[controller]/Metrics")]
         [HttpGet]
-        public IEnumerable<Report> Metrics()
+        public MetricWithCountOfRequests Metrics()
         {
+            MetricWithCountOfRequests metricWithCountOfRequests = new MetricWithCountOfRequests();
+
             //группировка по секундам осуществляется путем преобразования мс в сек (/1000) и округления до ближайшего целого с помощью Math.Round
             //2 приведения типа...Скорее всего,можно улучшить
             var Reports = MetricStorage.GroupBy(metric => (int)Math.Round((double)metric.TimeSpentToRequest / 1000))
-                .Select(group => new Report
+                .Select(group => new MetricsReport
                 {
                     TimeSpentToRequest = group.Key,
                     CountOfRequests = group.Count(),
-                    ReportCollection = group.Select(metric => metric)
+                    ReportCollection = group.Select(metric => metric),
+
                 });
-            return Reports;
+            //подсчет поличества запросов к системам
+            var CountOfRequestsToEachSearchingSystem = MetricStorage.GroupBy(metric => metric.NameOfSearchingSystem)
+                .Select(group => new Counter
+                {
+                    NameOfSearchingSystemSystem = group.Key,
+                    CountOfRequests = group.Count()
+                });
+            metricWithCountOfRequests.MetricsReports = Reports;
+            metricWithCountOfRequests.CountOfRequestsToEachSearchingSystem = CountOfRequestsToEachSearchingSystem;
+            return metricWithCountOfRequests;
         }
     }
+
 }
