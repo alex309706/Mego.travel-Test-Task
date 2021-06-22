@@ -40,7 +40,7 @@ namespace Test.Search.Controllers
         public async Task<IEnumerable<Metric>> Search(int wait, int randomMin, int randomMax)
         {
             //список состояний запроса, на основании которых будем создавать метрики по текущему запросу
-            List<RequestState> RequestsStates = new List<RequestState>();
+            List<RequestState> CurrentRequestsStates = new List<RequestState>();
             //список метрик из текущего запроса
             List<Metric> MetricsFromCurrentRequest = new List<Metric>();
             //токен для прекращения ожидания результатов запроса...Пока не разобрался как его правильно использовать.
@@ -58,20 +58,20 @@ namespace Test.Search.Controllers
 
             ParallelLoopResult result = Parallel.ForEach(SystemsToDoParallelRequest, SearchingSystem =>
            {
-               var requesState = GetRequestState(SearchingSystem, wait, randomMin, randomMax, RequestsStates, token).Result;
-               RequestsStates.Add(requesState);
+               CurrentRequestsStates.Add(GetRequestState(SearchingSystem, wait, randomMin, randomMax, token).Result);
            });
-            if (RequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
+            if (CurrentRequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
             {
                 Task<RequestState> MakeRequestToSystemD = Task.Run(() =>
                 {
-                    return GetRequestState(D, wait, randomMin, randomMax, RequestsStates, token);
+                    return GetRequestState(D, wait, randomMin, randomMax, token);
                 });
+                CurrentRequestsStates.Add(MakeRequestToSystemD.Result);
             }
             //заполнение метрик
             return await Task.Run(() =>
             {
-                foreach (var requestState in RequestsStates)
+                foreach (var requestState in CurrentRequestsStates)
                 {
                     MetricsFromCurrentRequest.Add(MakeMetric(requestState));
                 }
@@ -82,7 +82,7 @@ namespace Test.Search.Controllers
                 return MetricsFromCurrentRequest;
             });
         }
-        private async Task<RequestState> GetRequestState(IRequestable SearchingSystem, int wait, int randomMin, int randomMax, List<RequestState> RequestsStates, CancellationToken token)
+        private async Task<RequestState> GetRequestState(IRequestable SearchingSystem, int wait, int randomMin, int randomMax, CancellationToken token)
         {
             RequestState requestState = new RequestState();
             requestState.System = SearchingSystem;
@@ -90,26 +90,32 @@ namespace Test.Search.Controllers
             //для перевода в миллисекунды
             int waitTimeToMilliseconds = wait * 1000;
             requestState.ExecutionTime = waitTimeToMilliseconds;
-            RequestsStates.Add(requestState);
             //подсчет времени выполнения
-
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-            requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax, token);
-            sw.Stop();
-            //приведение к секундам
-            if (token.IsCancellationRequested != true)
+            try
             {
-                requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                requestState.Status = RequestState.RequestStatus.Completed;
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+                requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax, token);
+                sw.Stop();
+                //приведение к секундам
+                if (token.IsCancellationRequested != true)
+                {
+                    requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                    requestState.Status = RequestState.RequestStatus.Completed;
+                }
+                else
+                {
+                    requestState.ExecutionTime = waitTimeToMilliseconds;
+                }
             }
-            else
+            catch (Exception)
             {
-                requestState.ExecutionTime = waitTimeToMilliseconds;
-                RequestState requestStateToChange = RequestsStates.FirstOrDefault(requestState => requestState.System == SearchingSystem);
-                requestStateToChange.ExecutionTime = requestState.ExecutionTime;
+
+                throw;
             }
             return requestState;
+
+
         }
 
         //создание метрики
