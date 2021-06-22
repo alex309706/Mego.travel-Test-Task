@@ -53,21 +53,31 @@ namespace Test.Search.Controllers
                 Thread.Sleep(waitTimeToMilliseconds);
                 source.Cancel();
             });
-
+            //системы, к которым должен осуществляться параллельный запрос
             IRequestable[] SystemsToDoParallelRequest = new IRequestable[3] { A, B, C };
-
-            ParallelLoopResult result = Parallel.ForEach(SystemsToDoParallelRequest, SearchingSystem =>
-           {
-               CurrentRequestsStates.Add(GetRequestState(SearchingSystem, wait, randomMin, randomMax, token).Result);
-           });
-            if (CurrentRequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
+            try
             {
-                Task<RequestState> MakeRequestToSystemD = Task.Run(() =>
+                //выполнение параллельного запроса
+                ParallelLoopResult result = Parallel.ForEach(SystemsToDoParallelRequest, SearchingSystem =>
                 {
-                    return GetRequestState(D, wait, randomMin, randomMax, token);
+                    CurrentRequestsStates.Add(GetRequestState(SearchingSystem, wait, randomMin, randomMax, token).Result);
                 });
-                CurrentRequestsStates.Add(MakeRequestToSystemD.Result);
+                //выполнение запроса к системе D , если от системы C пришел ответ "ОК"
+                if (CurrentRequestsStates.FirstOrDefault(Request => Request.System == C).Result == "OK")
+                {
+                    Task<RequestState> MakeRequestToSystemD = Task.Run(() =>
+                    {
+                        return GetRequestState(D, wait, randomMin, randomMax, token);
+                    });
+                    CurrentRequestsStates.Add(MakeRequestToSystemD.Result);
+                }
             }
+            //Что уведомлять? возможно, логгер нужен?
+            catch (AggregateException)
+            {
+                //как уведомить, что Task'а была отменена?
+            }
+
             //заполнение метрик
             return await Task.Run(() =>
             {
@@ -82,6 +92,8 @@ namespace Test.Search.Controllers
                 return MetricsFromCurrentRequest;
             });
         }
+
+        //получение состояния запроса
         private async Task<RequestState> GetRequestState(IRequestable SearchingSystem, int wait, int randomMin, int randomMax, CancellationToken token)
         {
             RequestState requestState = new RequestState();
@@ -91,31 +103,18 @@ namespace Test.Search.Controllers
             int waitTimeToMilliseconds = wait * 1000;
             requestState.ExecutionTime = waitTimeToMilliseconds;
             //подсчет времени выполнения
-            try
-            {
-                Stopwatch sw = new Stopwatch();
-                sw.Start();
-                requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax, token);
-                sw.Stop();
-                //приведение к секундам
-                if (token.IsCancellationRequested != true)
-                {
-                    requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
-                    requestState.Status = RequestState.RequestStatus.Completed;
-                }
-                else
-                {
-                    requestState.ExecutionTime = waitTimeToMilliseconds;
-                }
-            }
-            catch (Exception)
-            {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+            requestState.Result = await GetRequestResult(SearchingSystem, randomMin, randomMax, token);
+            sw.Stop();
 
-                throw;
+
+            if (token.IsCancellationRequested != true)
+            {
+                requestState.ExecutionTime = (int)sw.ElapsedMilliseconds;
+                requestState.Status = RequestState.RequestStatus.Completed;
             }
             return requestState;
-
-
         }
 
         //создание метрики
